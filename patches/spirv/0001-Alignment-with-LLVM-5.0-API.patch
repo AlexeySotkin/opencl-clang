@@ -1,0 +1,100 @@
+From ab71fca56f7b302dc0a48f2efcfbfa5c4fd39cb2 Mon Sep 17 00:00:00 2001
+From: Alexey Sotkin <alexey.sotkin@intel.com>
+Date: Thu, 6 Sep 2018 17:33:33 +0300
+Subject: [PATCH] Alignment with LLVM 5.0 API
+
+Affected entities
+* Memory intrinsics API
+* WriteBitcodeToFile API
+* ToolOutputFile class name
+
+Change-Id: I08bb1bdf9758654f36da50438d450ec01f123347
+---
+ lib/SPIRV/SPIRVReader.cpp       | 6 +++---
+ lib/SPIRV/SPIRVUtil.cpp         | 4 ++--
+ tools/llvm-spirv/llvm-spirv.cpp | 8 ++++----
+ 3 files changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/lib/SPIRV/SPIRVReader.cpp b/lib/SPIRV/SPIRVReader.cpp
+index 2391b83..1493a26 100644
+--- a/lib/SPIRV/SPIRVReader.cpp
++++ b/lib/SPIRV/SPIRVReader.cpp
+@@ -1640,7 +1640,7 @@ SPIRVToLLVM::transValueWithoutDecoration(SPIRVValue *BV, Function *F,
+     }
+     if (!CI) {
+       llvm::Value *Src = transValue(BC->getSource(), F, BB);
+-      CI = Builder.CreateMemCpy(Dst, Align, Src, Align, Size, isVolatile);
++      CI = Builder.CreateMemCpy(Dst, Src, Size, Align, isVolatile);
+     }
+     if (isFuncNoUnwind())
+       CI->getFunction()->addFnAttr(Attribute::NoUnwind);
+@@ -2211,8 +2211,8 @@ SPIRVToLLVM::transEnqueuedBlock(SPIRVValue *SInvoke, SPIRVValue *SCaptured,
+ 
+     // We can't make any guesses about type of captured data, so
+     // let's copy it through memcpy
+-    Builder.CreateMemCpy(CapturedGEPCast, LCaptAlignment->getZExtValue(),
+-                         LCaptured, LCaptAlignment->getZExtValue(), LCaptSize,
++    Builder.CreateMemCpy(CapturedGEPCast, LCaptured, LCaptSize,
++                         LCaptAlignment->getZExtValue(),
+                          SCaptured->isVolatile());
+ 
+     // Fix invoke function to correctly process its first argument
+diff --git a/lib/SPIRV/SPIRVUtil.cpp b/lib/SPIRV/SPIRVUtil.cpp
+index 332315b..37797ef 100644
+--- a/lib/SPIRV/SPIRVUtil.cpp
++++ b/lib/SPIRV/SPIRVUtil.cpp
+@@ -103,13 +103,13 @@ removeCast(Value *V) {
+ void
+ saveLLVMModule(Module *M, const std::string &OutputFile) {
+   std::error_code EC;
+-  ToolOutputFile Out(OutputFile.c_str(), EC, sys::fs::F_None);
++  tool_output_file Out(OutputFile.c_str(), EC, sys::fs::F_None);
+   if (EC) {
+     SPIRVDBG(errs() << "Fails to open output file: " << EC.message();)
+     return;
+   }
+ 
+-  WriteBitcodeToFile(*M, Out.os());
++  WriteBitcodeToFile(M, Out.os());
+   Out.keep();
+ }
+ 
+diff --git a/tools/llvm-spirv/llvm-spirv.cpp b/tools/llvm-spirv/llvm-spirv.cpp
+index 384756f..ad70688 100644
+--- a/tools/llvm-spirv/llvm-spirv.cpp
++++ b/tools/llvm-spirv/llvm-spirv.cpp
+@@ -177,13 +177,13 @@ convertSPIRVToLLVM() {
+   }
+ 
+   std::error_code EC;
+-  ToolOutputFile Out(OutputFile.c_str(), EC, sys::fs::F_None);
++  tool_output_file Out(OutputFile.c_str(), EC, sys::fs::F_None);
+   if (EC) {
+     errs() << "Fails to open output file: " << EC.message();
+     return -1;
+   }
+ 
+-  WriteBitcodeToFile(*M, Out.os());
++  WriteBitcodeToFile(M, Out.os());
+   Out.keep();
+   delete M;
+   return 0;
+@@ -249,13 +249,13 @@ regularizeLLVM() {
+   }
+ 
+   std::error_code EC;
+-  ToolOutputFile Out(OutputFile.c_str(), EC, sys::fs::F_None);
++  tool_output_file Out(OutputFile.c_str(), EC, sys::fs::F_None);
+   if (EC) {
+     errs() << "Fails to open output file: " << EC.message();
+     return -1;
+   }
+ 
+-  WriteBitcodeToFile(*M.get(), Out.os());
++  WriteBitcodeToFile(M.get(), Out.os());
+   Out.keep();
+   return 0;
+ }
+-- 
+1.8.3.1
+
