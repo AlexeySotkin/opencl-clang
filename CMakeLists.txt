@@ -229,13 +229,6 @@ target_link_libraries( ${TARGET_NAME}
                        LLVMTarget
                        LLVMTransformUtils
                        LLVMVectorize
-                       LLVMX86AsmParser
-                       LLVMX86AsmPrinter
-                       LLVMX86CodeGen
-                       LLVMX86Desc
-                       LLVMX86Disassembler
-                       LLVMX86Info
-                       LLVMX86Utils
                        clangARCMigrate
                        clangAST
                        clangAnalysis
