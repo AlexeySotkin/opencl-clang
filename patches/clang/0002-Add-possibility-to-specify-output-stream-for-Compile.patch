@@ -1,0 +1,147 @@
+From 393d842c580557fa0636319836297590201490c0 Mon Sep 17 00:00:00 2001
+From: Alexey Sotkin <alexey.sotkin@intel.com>
+Date: Fri, 2 Mar 2018 12:11:40 +0000
+Subject: [PATCH] Add possibility to specify output stream for CompilerInstance
+
+Patch by: krisb
+
+Reviewers: teemperor
+
+Reviewed By: teemperor
+
+Subscribers: klimek, mgorny, cfe-commits
+
+Differential Revision: https://reviews.llvm.org/D43809
+
+git-svn-id: https://llvm.org/svn/llvm-project/cfe/trunk@326566 91177308-0d34-0410-b5e6-96231b3b80d8
+
+Conflicts:
+	unittests/Frontend/CMakeLists.txt
+
+Change-Id: I40f4ad2be08fdf4c771b250fabafbd6719c6da99
+---
+ include/clang/Frontend/CompilerInstance.h | 11 ++++++++
+ lib/CodeGen/CodeGenAction.cpp             |  5 +++-
+ unittests/Frontend/CMakeLists.txt         |  2 ++
+ unittests/Frontend/OutputStreamTest.cpp   | 46 +++++++++++++++++++++++++++++++
+ 4 files changed, 63 insertions(+), 1 deletion(-)
+ create mode 100644 unittests/Frontend/OutputStreamTest.cpp
+
+diff --git a/include/clang/Frontend/CompilerInstance.h b/include/clang/Frontend/CompilerInstance.h
+index 5b5c752..13f3ad3 100644
+--- a/include/clang/Frontend/CompilerInstance.h
++++ b/include/clang/Frontend/CompilerInstance.h
+@@ -183,6 +183,9 @@ class CompilerInstance : public ModuleLoader {
+   /// The list of active output files.
+   std::list<OutputFile> OutputFiles;
+ 
++  /// Force an output buffer.
++  std::unique_ptr<llvm::raw_pwrite_stream> OutputStream;
++
+   CompilerInstance(const CompilerInstance &) = delete;
+   void operator=(const CompilerInstance &) = delete;
+ public:
+@@ -771,6 +774,14 @@ public:
+ 
+   /// }
+ 
++  void setOutputStream(std::unique_ptr<llvm::raw_pwrite_stream> OutStream) {
++    OutputStream = std::move(OutStream);
++  }
++
++  std::unique_ptr<llvm::raw_pwrite_stream> takeOutputStream() {
++    return std::move(OutputStream);
++  }
++
+   // Create module manager.
+   void createModuleManager();
+ 
+diff --git a/lib/CodeGen/CodeGenAction.cpp b/lib/CodeGen/CodeGenAction.cpp
+index 4f03de5..5b4a819 100644
+--- a/lib/CodeGen/CodeGenAction.cpp
++++ b/lib/CodeGen/CodeGenAction.cpp
+@@ -809,7 +809,10 @@ GetOutputStream(CompilerInstance &CI, StringRef InFile, BackendAction Action) {
+ std::unique_ptr<ASTConsumer>
+ CodeGenAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
+   BackendAction BA = static_cast<BackendAction>(Act);
+-  std::unique_ptr<raw_pwrite_stream> OS = GetOutputStream(CI, InFile, BA);
++  std::unique_ptr<raw_pwrite_stream> OS = CI.takeOutputStream();
++  if (!OS)
++    OS = GetOutputStream(CI, InFile, BA);
++
+   if (BA != Backend_EmitNothing && !OS)
+     return nullptr;
+ 
+diff --git a/unittests/Frontend/CMakeLists.txt b/unittests/Frontend/CMakeLists.txt
+index 674f77b..874a354 100644
+--- a/unittests/Frontend/CMakeLists.txt
++++ b/unittests/Frontend/CMakeLists.txt
+@@ -5,6 +5,7 @@ set(LLVM_LINK_COMPONENTS
+ add_clang_unittest(FrontendTests
+   FrontendActionTest.cpp
+   CodeGenActionTest.cpp
++  OutputStreamTest.cpp
+   )
+ target_link_libraries(FrontendTests
+   clangAST
+@@ -13,4 +14,5 @@ target_link_libraries(FrontendTests
+   clangLex
+   clangSema
+   clangCodeGen
++  clangFrontendTool
+   )
+diff --git a/unittests/Frontend/OutputStreamTest.cpp b/unittests/Frontend/OutputStreamTest.cpp
+new file mode 100644
+index 0000000..ff03650
+--- /dev/null
++++ b/unittests/Frontend/OutputStreamTest.cpp
+@@ -0,0 +1,46 @@
++//===- unittests/Frontend/OutputStreamTest.cpp --- FrontendAction tests --===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++
++#include "clang/CodeGen/BackendUtil.h"
++#include "clang/CodeGen/CodeGenAction.h"
++#include "clang/Frontend/CompilerInstance.h"
++#include "clang/FrontendTool/Utils.h"
++#include "clang/Lex/PreprocessorOptions.h"
++#include "gtest/gtest.h"
++
++using namespace llvm;
++using namespace clang;
++using namespace clang::frontend;
++
++namespace {
++
++TEST(FrontendOutputTests, TestOutputStream) {
++  auto Invocation = std::make_shared<CompilerInvocation>();
++  Invocation->getPreprocessorOpts().addRemappedFile(
++      "test.cc", MemoryBuffer::getMemBuffer("").release());
++  Invocation->getFrontendOpts().Inputs.push_back(
++      FrontendInputFile("test.cc", InputKind::CXX));
++  Invocation->getFrontendOpts().ProgramAction = EmitBC;
++  Invocation->getTargetOpts().Triple = "i386-unknown-linux-gnu";
++  CompilerInstance Compiler;
++
++  SmallVector<char, 256> IRBuffer;
++  std::unique_ptr<raw_pwrite_stream> IRStream(
++      new raw_svector_ostream(IRBuffer));
++
++  Compiler.setOutputStream(std::move(IRStream));
++  Compiler.setInvocation(std::move(Invocation));
++  Compiler.createDiagnostics();
++
++  bool Success = ExecuteCompilerInvocation(&Compiler);
++  EXPECT_TRUE(Success);
++  EXPECT_TRUE(!IRBuffer.empty());
++  EXPECT_TRUE(StringRef(IRBuffer.data()).startswith("BC"));
++}
++}
+-- 
+1.8.3.1
+

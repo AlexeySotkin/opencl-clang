@@ -115,6 +115,21 @@ if (NOT DEFINED COMMON_CLANG_LIBRARY_NAME)
 endif()
 set(TARGET_NAME ${COMMON_CLANG_LIBRARY_NAME}${BUILD_PLATFORM} )
 
+function(apply_patches repo_dir patches_dir)
+    file(GLOB patches ${patches_dir}/*.patch)
+    if(NOT patches)
+         return()
+   endif()
+    list(SORT patches)
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} am --3way --ignore-whitespace ${patches}
+        WORKING_DIRECTORY ${repo_dir})
+endfunction()
+
+set(CLANG_SOURCE_DIR ${LLVM_SOURCE_DIR}/tools/clang)
+apply_patches(${CLANG_SOURCE_DIR}
+              ${CMAKE_CURRENT_SOURCE_DIR}/patches/clang)
+
 #
 # TblGen the options include file
 #
