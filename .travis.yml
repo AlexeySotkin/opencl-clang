@@ -47,4 +47,4 @@ compiler:
 script:
   - mkdir build && cd build
   - cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DLLVM_NO_DEAD_STRIP=ON -DLLVMSPIRV_INCLUDED_IN_LLVM=OFF -DSPIRV_TRANSLATOR_DIR=./spirv-llvm-translator -DCMAKE_INSTALL_PREFIX=./install ..
-  - make install
+  - cmake --build . --target install
