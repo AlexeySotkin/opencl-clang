@@ -2,6 +2,7 @@ language: cpp
 
 os:
   - linux
+  - windows
 
 # Use Ubuntu 18.04 LTS (Bionic) as the Linux testing environment.
 dist: bionic
@@ -36,6 +37,7 @@ addons:
 install:
   - wget https://github.com/KhronosGroup/SPIRV-LLVM-Translator/releases/download/dev-build/SPIRV-LLVM-Translator-dev-build-linux-Release.zip -O /tmp/SPIRV-LLVM-Translator-dev-build-linux-${BUILD_TYPE}.zip
   - unzip /tmp/SPIRV-LLVM-Translator-dev-build-linux-${BUILD_TYPE}.zip -d spirv-llvm-translator
+  - if [ $TRAVIS_OS_NAME = windows ]; then choco install llvm --version 9.0.0 --pre; fi
 
 compiler:
   - gcc
