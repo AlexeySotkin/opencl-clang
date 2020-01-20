@@ -2,6 +2,7 @@ language: cpp
 
 os:
   - linux
+  - windows
 
 # Use Ubuntu 16.04 LTS (Xenial) as the Linux testing environment.
 dist: xenial
@@ -37,6 +38,7 @@ install:
   - export TARBALL=SPIRV-LLVM-Translator-${TAG}-linux-${BUILD_TYPE}.zip
   - wget https://github.com/KhronosGroup/SPIRV-LLVM-Translator/releases/download/${TAG}/${TARBALL} -O /tmp/${TARBALL}
   - unzip /tmp/${TARBALL} -d spirv-llvm-translator
+  - if [ $TRAVIS_OS_NAME = windows ]; then choco install llvm --version 8.0.0; fi
 
 compiler:
   - gcc
@@ -45,4 +47,4 @@ compiler:
 script:
   - mkdir build && cd build
   - cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DLLVM_NO_DEAD_STRIP=ON -DLLVMSPIRV_INCLUDED_IN_LLVM=OFF -DSPIRV_TRANSLATOR_DIR=./spirv-llvm-translator -DCMAKE_INSTALL_PREFIX=./install ..
-  - make install
+  - cmake --build . --target install
